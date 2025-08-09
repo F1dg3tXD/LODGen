@@ -28,7 +28,7 @@ Select your meshes, add them to the list, and hit generate. That’s it.
 ## Installation
 
 1. Download from here, or get it on the Blender Extensions Platform.  
-   - [Pending Approval]()  
+   - [Pending Approval](https://extensions.blender.org/approval-queue/lod-gen)  
 
 2. Enable the addon in Blender via **Edit → Preferences → Add-ons → LODGen**  
 
