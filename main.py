@@ -106,7 +106,7 @@ class LODGEN_OT_GenerateLODs(Operator):
                 continue
 
             base_name = re.sub(r"\.\d+$", "", original_obj.name)
-            lod_collection_name = f"{base_name}_LODs"
+            lod_collection_name = f"{base_name}"
 
             # Get or create LOD collection
             if lod_collection_name in bpy.data.collections:

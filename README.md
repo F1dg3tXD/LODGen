@@ -5,9 +5,7 @@ Quickly generate multiple LOD meshes with progressive decimation — all within 
 
 ---
 
-## 🚀 Generate LODs for Games in 3 Clicks or Less
-
-
+## Generate LODs for Games in 3 Clicks or Less
 ### ***Yes, I counted :skull:***
 
 Select your meshes, add them to the list, and hit generate. That’s it.
@@ -30,7 +28,7 @@ Select your meshes, add them to the list, and hit generate. That’s it.
 ## Installation
 
 1. Download from here, or get it on the Blender Extensions Platform.  
-   - [Pending Approval](null)  
+   - [Pending Approval]()  
 
 2. Enable the addon in Blender via **Edit → Preferences → Add-ons → LODGen**  
 
@@ -49,7 +47,8 @@ Your original meshes remain untouched (just hidden), and LODs appear neatly orga
 
 ## License
 
-This addon is licensed under the **GNU General Public License v3.0 (GPL-3.0)**, compatible with Blender’s extension platform requirements.  
+This addon is licensed under the **GNU General Public License v3.0 (GPL-3.0)**
+
 See [LICENSE](./LICENSE) for details.
 
 ---
