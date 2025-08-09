@@ -62,4 +62,8 @@ Feel free to open issues or pull requests on the repo.
 
 ## Support & Contact
 
-If you find this addon useful or have questions, reach out via the repo or contact me via Discord. [F1dg3t's Workshop](https://discord.gg/HE6YhEcFfz).
+If you find this addon useful or have questions, reach out via the repo or contact me via Discord. 
+
+[F1dg3t's Workshop](https://discord.gg/HE6YhEcFfz)
+
+[Direct Message](https://discord.com/users/342748613669027870)
