@@ -46,7 +46,11 @@ class LODGEN_UL_ObjectList(UIList):
         self, context, layout, data, item, icon,
         active_data, active_propname, index
     ):
-        layout.label(text=item.name, icon='MESH_DATA')
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            layout.label(text=item.name, icon='MESH_DATA')
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="")
 
 # -------------------
 # Operators
@@ -92,7 +96,7 @@ class LODGEN_OT_GenerateLODs(Operator):
 
     def execute(self, context):
         props = context.scene.lodgen_props
-        step_scale = props.decimation_scale
+        step_scale = props.decimation_scale  # per-step multiplier
         iterations = props.iterations
 
         for entry in props.objects:
@@ -107,43 +111,46 @@ class LODGEN_OT_GenerateLODs(Operator):
             # Get or create LOD collection
             if lod_collection_name in bpy.data.collections:
                 target_collection = bpy.data.collections[lod_collection_name]
+                # Remove old LODs but leave the original
                 for o in list(target_collection.objects):
                     bpy.data.objects.remove(o, do_unlink=True)
             else:
                 target_collection = bpy.data.collections.new(lod_collection_name)
                 context.scene.collection.children.link(target_collection)
 
-            # Hide the original
+            # Hide the original but do not move it
             original_obj.hide_set(True)
             original_obj.hide_render = True
 
-            # Create LOD0 with all modifiers applied using new_from_object
-            lod0_mesh = bpy.data.meshes.new_from_object(original_obj, preserve_all_data_layers=True, depsgraph=context.evaluated_depsgraph_get())
+            # Create LOD0 from the original
             lod0_obj = original_obj.copy()
-            lod0_obj.data = lod0_mesh
+            lod0_obj.data = original_obj.data.copy()
             lod0_obj.name = f"{base_name}_LOD0"
-            lod0_obj.modifiers.clear()
             target_collection.objects.link(lod0_obj)
+
+            # Apply all modifiers on LOD0
+            bpy.context.view_layer.objects.active = lod0_obj
+            for mod in list(lod0_obj.modifiers):
+                bpy.ops.object.modifier_apply(modifier=mod.name)
 
             current_obj = lod0_obj
             current_ratio = step_scale
 
-            # Create further LODs
+            # Create further LODs progressively
             for lod_level in range(1, iterations):
                 new_obj = current_obj.copy()
                 new_obj.data = current_obj.data.copy()
                 new_obj.name = f"{base_name}_LOD{lod_level}"
                 target_collection.objects.link(new_obj)
 
-                # Decimate
+                # Add decimate modifier
                 dec_mod = new_obj.modifiers.new(name="LODGen_Decimate", type='DECIMATE')
                 dec_mod.ratio = current_ratio
 
-                # Apply decimate quickly
-                dec_mesh = bpy.data.meshes.new_from_object(new_obj, preserve_all_data_layers=True, depsgraph=context.evaluated_depsgraph_get())
-                new_obj.data = dec_mesh
-                new_obj.modifiers.clear()
+                bpy.context.view_layer.objects.active = new_obj
+                bpy.ops.object.modifier_apply(modifier=dec_mod.name)
 
+                # Prepare for next iteration
                 current_obj = new_obj
                 current_ratio *= step_scale
 
@@ -175,6 +182,7 @@ class LODGEN_PT_MainPanel(Panel):
         layout.prop(props, "decimation_scale")
         layout.prop(props, "iterations")
         layout.operator("lodgen.generate_lods", icon='MOD_DECIM')
+
 
 # -------------------
 # Registration
