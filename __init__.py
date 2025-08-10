@@ -2,7 +2,7 @@ bl_info = {
     "name": "LODGen",
     "description": "Generate LODs for Games in 3 Clicks or Less",
     "author": "F1dg3t",
-    "version": (0, 0, 1),
+    "version": (0, 0, 2),
     "blender": (4, 4, 0),
     "location": "View3D > Sidebar > Create Tab > LODGen",
     "warning": "",
