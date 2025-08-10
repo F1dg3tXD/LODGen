@@ -12,7 +12,7 @@ website = "https://github.com/F1dg3tXD/LODGen"
 
 # # Optional: tag list defined by Blender and server, see:
 # # https://docs.blender.org/manual/en/dev/advanced/extensions/tags.html
-# tags = ["Modeling", "Mesh"]
+tags = ["Modeling", "Mesh"]
 
 blender_version_min = "4.4.0"
 # # Optional: Blender version that the extension does not support, earlier versions are supported.
