@@ -19,7 +19,10 @@ from bpy.types import (
 # -------------------
 
 class LODGenObject(PropertyGroup):
-    name: StringProperty(name="Object Name")
+    object_ref: PointerProperty(
+        name="Object",
+        type=bpy.types.Object
+    )
 
 class LODGenProperties(PropertyGroup):
     objects: CollectionProperty(type=LODGenObject)
@@ -42,15 +45,10 @@ class LODGenProperties(PropertyGroup):
 # -------------------
 
 class LODGEN_UL_ObjectList(UIList):
-    def draw_item(
-        self, context, layout, data, item, icon,
-        active_data, active_propname, index
-    ):
-        if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            layout.label(text=item.name, icon='MESH_DATA')
-        elif self.layout_type == 'GRID':
-            layout.alignment = 'CENTER'
-            layout.label(text="")
+    def draw_item(self, context, layout, data, item, icon,
+                  active_data, active_propname, index):
+        obj = item.object_ref
+        layout.label(text=obj.name if obj else "<missing>", icon='MESH_DATA')
 
 # -------------------
 # Operators
@@ -65,9 +63,9 @@ class LODGEN_OT_AddSelected(Operator):
     def execute(self, context):
         props = context.scene.lodgen_props
         for obj in context.selected_objects:
-            if obj.name not in [o.name for o in props.objects]:
+            if not any(o.object_ref == obj for o in props.objects):
                 item = props.objects.add()
-                item.name = obj.name
+                item.object_ref = obj
         return {'FINISHED'}
 
 class LODGEN_OT_RemoveSelected(Operator):
@@ -83,9 +81,8 @@ class LODGEN_OT_RemoveSelected(Operator):
 
     def execute(self, context):
         props = context.scene.lodgen_props
-        selected_indices = [i for i, item in enumerate(props.objects) if item.name == props.objects[context.scene.lodgen_list_index].name]
-        if selected_indices:
-            props.objects.remove(selected_indices[0])
+        if 0 <= context.scene.lodgen_list_index < len(props.objects):
+            props.objects.remove(context.scene.lodgen_list_index)
         return {'FINISHED'}
 
 class LODGEN_OT_GenerateLODs(Operator):
@@ -96,13 +93,13 @@ class LODGEN_OT_GenerateLODs(Operator):
 
     def execute(self, context):
         props = context.scene.lodgen_props
-        step_scale = props.decimation_scale  # per-step multiplier
+        step_scale = props.decimation_scale
         iterations = props.iterations
 
         for entry in props.objects:
-            original_obj = bpy.data.objects.get(entry.name)
-            if not original_obj:
-                self.report({'WARNING'}, f"Object {entry.name} not found, skipping.")
+            original_obj = entry.object_ref
+            if not original_obj or original_obj.type != 'MESH':
+                self.report({'WARNING'}, f"Object {getattr(original_obj, 'name', 'Unknown')} not found or not a mesh, skipping.")
                 continue
 
             base_name = re.sub(r"\.\d+$", "", original_obj.name)
@@ -113,7 +110,8 @@ class LODGEN_OT_GenerateLODs(Operator):
                 target_collection = bpy.data.collections[lod_collection_name]
                 # Remove old LODs but leave the original
                 for o in list(target_collection.objects):
-                    bpy.data.objects.remove(o, do_unlink=True)
+                    if o != original_obj:
+                        bpy.data.objects.remove(o, do_unlink=True)
             else:
                 target_collection = bpy.data.collections.new(lod_collection_name)
                 context.scene.collection.children.link(target_collection)
@@ -122,35 +120,32 @@ class LODGEN_OT_GenerateLODs(Operator):
             original_obj.hide_set(True)
             original_obj.hide_render = True
 
-            # Create LOD0 from the original
-            lod0_obj = original_obj.copy()
-            lod0_obj.data = original_obj.data.copy()
-            lod0_obj.name = f"{base_name}_LOD0"
+            # Create LOD0 mesh from object with all modifiers applied
+            lod0_mesh = bpy.data.meshes.new_from_object(original_obj.evaluated_get(context.evaluated_depsgraph_get()))
+            lod0_obj = bpy.data.objects.new(f"{base_name}_LOD0", lod0_mesh)
             target_collection.objects.link(lod0_obj)
-
-            # Apply all modifiers on LOD0
-            bpy.context.view_layer.objects.active = lod0_obj
-            for mod in list(lod0_obj.modifiers):
-                bpy.ops.object.modifier_apply(modifier=mod.name)
 
             current_obj = lod0_obj
             current_ratio = step_scale
 
             # Create further LODs progressively
             for lod_level in range(1, iterations):
-                new_obj = current_obj.copy()
-                new_obj.data = current_obj.data.copy()
-                new_obj.name = f"{base_name}_LOD{lod_level}"
-                target_collection.objects.link(new_obj)
+                # Make decimated copy from current_obj
+                temp_obj = current_obj.copy()
+                temp_mesh = current_obj.data.copy()
+                temp_obj.data = temp_mesh
+                bpy.context.scene.collection.objects.link(temp_obj)
 
-                # Add decimate modifier
-                dec_mod = new_obj.modifiers.new(name="LODGen_Decimate", type='DECIMATE')
+                dec_mod = temp_obj.modifiers.new(name="LODGen_Decimate", type='DECIMATE')
                 dec_mod.ratio = current_ratio
 
-                bpy.context.view_layer.objects.active = new_obj
-                bpy.ops.object.modifier_apply(modifier=dec_mod.name)
+                # Generate mesh with decimation applied
+                dec_mesh = bpy.data.meshes.new_from_object(temp_obj.evaluated_get(context.evaluated_depsgraph_get()))
+                bpy.data.objects.remove(temp_obj, do_unlink=True)
 
-                # Prepare for next iteration
+                new_obj = bpy.data.objects.new(f"{base_name}_LOD{lod_level}", dec_mesh)
+                target_collection.objects.link(new_obj)
+
                 current_obj = new_obj
                 current_ratio *= step_scale
 
@@ -183,7 +178,6 @@ class LODGEN_PT_MainPanel(Panel):
         layout.prop(props, "iterations")
         layout.operator("lodgen.generate_lods", icon='MOD_DECIM')
 
-
 # -------------------
 # Registration
 # -------------------
@@ -209,3 +203,6 @@ def unregister():
         bpy.utils.unregister_class(cls)
     del bpy.types.Scene.lodgen_props
     del bpy.types.Scene.lodgen_list_index
+
+if __name__ == "__main__":
+    register()
